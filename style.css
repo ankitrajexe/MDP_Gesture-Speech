@@ -8,7 +8,23 @@
   --ink:#0B1E3D;
   --muted:#5C6E8A;
   --line:#E1E8F2;
+  --gold:#F0B429;
 }
+
+html[data-theme="dark"]{
+  --navy:#060E1F;
+  --navy2:#0C1B36;
+  --blue:#5B9BE0;
+  --blue-bright:#7FB4EC;
+  --bg:#0A1220;
+  --paper:#111C31;
+  --ink:#EAF2FB;
+  --muted:#8FA3C4;
+  --line:#213251;
+}
+
+::selection{ background:var(--gold); color:#0A0E14; }
+::-moz-selection{ background:var(--gold); color:#0A0E14; }
 
 *{box-sizing:border-box;}
 html{scroll-behavior:smooth;}
@@ -21,21 +37,34 @@ body{
 }
 h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0;}
 
-#cursor-glow{
-  position:fixed; top:0; left:0; width:520px; height:520px; border-radius:50%;
-  background:radial-gradient(circle, rgba(91,155,224,.16), transparent 70%);
-  pointer-events:none; transform:translate(-999px,-999px); z-index:0; transition:opacity .3s;
+#particles{
+  position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:0;
+}
+
+.trail-dot{
+  position:fixed; top:0; left:0; width:7px; height:7px; border-radius:50%;
+  background:var(--blue-bright); pointer-events:none; z-index:5;
+  transform:translate(-999px,-999px); box-shadow:0 0 10px 2px rgba(91,155,224,.7);
 }
 
 header{
   position:relative; overflow:hidden; z-index:1;
-  background:linear-gradient(160deg,var(--navy) 0%, var(--navy2) 65%, #1B3C6E 100%);
+  background:linear-gradient(160deg,var(--navy) 0%, var(--navy2) 55%, #1B3C6E 100%);
+  background-size:180% 180%;
+  animation:heroShift 14s ease-in-out infinite alternate;
   color:#fff; padding:20px 20px 0;
 }
+@keyframes heroShift{
+  from{background-position:0% 20%;}
+  to{background-position:100% 80%;}
+}
+.controls{
+  position:absolute; top:18px; right:18px; display:flex; align-items:center; gap:8px; z-index:3;
+}
 .mode-toggle{
-  position:absolute; top:18px; right:18px; display:flex; align-items:center; gap:8px;
+  display:flex; align-items:center; gap:8px;
   background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.18); border-radius:30px;
-  padding:6px 10px; cursor:pointer; z-index:3;
+  padding:6px 10px; cursor:pointer;
 }
 .mt-icon{font-size:.85rem; opacity:.85;}
 .mt-track{width:34px; height:18px; background:rgba(255,255,255,.25); border-radius:20px; position:relative;}
@@ -61,7 +90,9 @@ nav::-webkit-scrollbar{display:none;}
 nav button{
   flex:0 0 auto; background:transparent; border:none; color:#AFC7E8; font-size:.88rem;
   font-family:inherit; padding:13px 16px; cursor:pointer; white-space:nowrap; position:relative;
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1), color .15s;
 }
+.mode-toggle{transition:transform .18s cubic-bezier(.34,1.56,.64,1);}
 nav button.active{color:#fff; font-weight:600;}
 #tab-indicator{
   position:absolute; bottom:0; height:3px; background:var(--blue-bright); border-radius:3px 3px 0 0;
@@ -76,6 +107,13 @@ section.active{display:block;}
 
 h2{font-size:1.2rem; margin-bottom:4px;}
 .sub{color:var(--muted); font-size:.88rem; margin:0 0 22px;}
+
+.spot{position:relative; overflow:hidden;}
+.spot::before{
+  content:""; position:absolute; inset:0; opacity:0; transition:opacity .35s ease; pointer-events:none;
+  background:radial-gradient(260px circle at var(--mx,50%) var(--my,50%), rgba(91,155,224,.22), transparent 62%);
+}
+.spot.spot-active::before{opacity:1;}
 
 .title-box{
   background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:20px 22px; margin-bottom:18px;
