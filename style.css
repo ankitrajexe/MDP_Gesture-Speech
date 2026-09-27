@@ -19,14 +19,14 @@ html[data-theme="dark"]{
   --bg:#0A1220;
   --paper:#111C31;
   --ink:#EAF2FB;
-  --muted:#8FA3C4;
+  --muted:#9FB3D1;
   --line:#213251;
 }
 
 ::selection{ background:var(--gold); color:#0A0E14; }
 ::-moz-selection{ background:var(--gold); color:#0A0E14; }
 
-*{box-sizing:border-box;}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
 html{scroll-behavior:smooth;}
 body{
   margin:0;
@@ -35,6 +35,18 @@ body{
   color:var(--ink);
   -webkit-font-smoothing:antialiased;
 }
+
+/* touch press feedback — replaces the default grey tap flash with our own */
+.card, .title-box, .member, .phase-card, .deadline-card{
+  transition:transform .12s ease, box-shadow .15s ease, opacity .5s ease;
+}
+.card:active, .title-box:active, .member:active, .phase-card:active, .deadline-card:active{
+  transform:scale(.985);
+}
+
+/* scroll reveal */
+.reveal{opacity:0; transform:translateY(16px);}
+.reveal.in-view{opacity:1; transform:translateY(0);}
 h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0;}
 
 #particles{
@@ -147,7 +159,7 @@ h2{font-size:1.2rem; margin-bottom:4px;}
 .team-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
 .member{
   background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px;
-  transition:transform .15s ease, box-shadow .15s ease; transform-style:preserve-3d; will-change:transform;
+  transition:transform .15s ease, box-shadow .15s ease, opacity .5s ease; transform-style:preserve-3d; will-change:transform;
 }
 .member.tiltable:hover{box-shadow:0 14px 30px -12px rgba(11,30,61,.25);}
 .member .name{font-weight:600; font-size:.95rem;}
@@ -163,8 +175,8 @@ h2{font-size:1.2rem; margin-bottom:4px;}
 }
 .pstep:last-child::before{display:none;}
 .pnum{
-  flex:0 0 30px; height:30px; border-radius:50%; background:var(--navy); color:#fff;
-  display:flex; align-items:center; justify-content:center; font-size:.82rem; font-weight:700; z-index:1;
+  flex:0 0 32px; height:32px; border-radius:50%; background:var(--navy); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:1rem; z-index:1;
 }
 .pbody .ptitle{font-weight:600; font-size:.94rem; font-family:'Space Grotesk',sans-serif;}
 .pbody .pdesc{color:var(--muted); font-size:.85rem; margin-top:3px;}
@@ -193,6 +205,12 @@ h2{font-size:1.2rem; margin-bottom:4px;}
 html[data-theme="dark"] .dbadge.due-soon{color:var(--gold);}
 .dbadge.passed{background:var(--line); color:var(--muted);}
 @keyframes pulseBadge{0%,100%{opacity:1;} 50%{opacity:.5;}}
+
+.note{
+  font-size:.8rem; color:var(--muted); background:var(--paper); border-left:3px solid var(--blue);
+  padding:9px 14px; border-radius:0 8px 8px 0; margin:0 0 18px; line-height:1.5;
+}
+.note code{background:var(--line); padding:1px 6px; border-radius:4px; font-size:.78rem;}
 
 .progress-wrap{margin:6px 0 26px;}
 .progress-label{display:flex; justify-content:space-between; font-size:.8rem; color:var(--muted); margin-bottom:7px;}
