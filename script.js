@@ -179,14 +179,17 @@ function playTone(freq, duration, type, peak){
   osc.connect(gain); gain.connect(ctx.destination);
   osc.start(); osc.stop(ctx.currentTime + duration + 0.02);
 }
-function hapticTick(ms){
-  if(navigator.vibrate){ try{ navigator.vibrate(ms || 8); }catch(err){ /* not supported */ } }
+// Note: iOS Safari does not implement the Vibration API at all (Apple has
+// never shipped it) — on iPhone this will silently no-op, that's a platform
+// limit, not a bug. Android Chrome/Firefox support it fine.
+function hapticTick(pattern){
+  if(navigator.vibrate){ try{ navigator.vibrate(pattern || 20); }catch(err){ /* not supported */ } }
 }
-function playClickSound(){ playTone(680, 0.08, "sine", 0.035); hapticTick(8); }
+function playClickSound(){ playTone(680, 0.08, "sine", 0.035); hapticTick(20); }
 function playSuccessSound(){
   playTone(600, 0.09, "triangle", 0.05);
   setTimeout(()=>playTone(900, 0.13, "triangle", 0.05), 90);
-  hapticTick([10,40,16]);
+  hapticTick([25,60,35]);
 }
 function spawnRipple(el, clientX, clientY){
   const rect = el.getBoundingClientRect();
@@ -283,17 +286,24 @@ function initPhaseInteractivity(){
 
 // Swipe left/right anywhere on the content to move between tabs — the kind
 // of gesture a native app would support, not just tap targets.
+// Built on Pointer Events (not raw touch events) because it behaves
+// consistently across Android Chrome and iOS Safari; pointerType lets us
+// filter to touch/pen only so mouse text-selection drags aren't affected.
 function initSwipeNav(){
   const main = document.getElementById("main");
-  let startX = 0, startY = 0, startTime = 0;
-  main.addEventListener("touchstart", e=>{
-    const t = e.changedTouches[0];
-    startX = t.clientX; startY = t.clientY; startTime = Date.now();
-  }, { passive:true });
-  main.addEventListener("touchend", e=>{
-    const t = e.changedTouches[0];
-    const dx = t.clientX - startX, dy = t.clientY - startY, dt = Date.now() - startTime;
-    if(Math.abs(dx) > 55 && Math.abs(dy) < 60 && dt < 600){
+  let startX = 0, startY = 0, startTime = 0, tracking = false;
+
+  main.addEventListener("pointerdown", e=>{
+    if(e.pointerType !== "touch" && e.pointerType !== "pen") return;
+    tracking = true;
+    startX = e.clientX; startY = e.clientY; startTime = Date.now();
+  });
+
+  main.addEventListener("pointerup", e=>{
+    if(!tracking) return;
+    tracking = false;
+    const dx = e.clientX - startX, dy = e.clientY - startY, dt = Date.now() - startTime;
+    if(Math.abs(dx) > 40 && Math.abs(dy) < 80 && dt < 700){
       const current = [...document.querySelectorAll("#tabs button")].findIndex(b=>b.classList.contains("active"));
       const next = dx < 0 ? current + 1 : current - 1;
       if(next >= 0 && next < sections.length && next !== current){
@@ -302,7 +312,9 @@ function initSwipeNav(){
         playClickSound();
       }
     }
-  }, { passive:true });
+  });
+
+  main.addEventListener("pointercancel", ()=>{ tracking = false; });
 }
 
 // Cards fade/rise into place as they scroll into view, instead of just
