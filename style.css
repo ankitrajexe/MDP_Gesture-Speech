@@ -90,9 +90,21 @@ nav::-webkit-scrollbar{display:none;}
 nav button{
   flex:0 0 auto; background:transparent; border:none; color:#AFC7E8; font-size:.88rem;
   font-family:inherit; padding:13px 16px; cursor:pointer; white-space:nowrap; position:relative;
-  transition:transform .18s cubic-bezier(.34,1.56,.64,1), color .15s;
+  overflow:hidden; transition:transform .18s cubic-bezier(.34,1.56,.64,1), color .15s;
 }
-.mode-toggle{transition:transform .18s cubic-bezier(.34,1.56,.64,1);}
+.mode-toggle{position:relative; overflow:hidden; transition:transform .18s cubic-bezier(.34,1.56,.64,1);}
+
+/* click reward: ripple + confetti, used on tabs, toggles and phase badges */
+.ripple{
+  position:absolute; width:10px; height:10px; margin:-5px 0 0 -5px; border-radius:50%;
+  background:rgba(91,155,224,.45); pointer-events:none; animation:rippleAnim .5s ease-out forwards;
+}
+@keyframes rippleAnim{ to{ width:130px; height:130px; margin:-65px 0 0 -65px; opacity:0; } }
+.confetti-piece{
+  position:fixed; width:6px; height:6px; border-radius:2px; pointer-events:none; z-index:60;
+  animation:confettiFly .7s ease-out forwards;
+}
+@keyframes confettiFly{ to{ transform:translate(var(--dx),var(--dy)) rotate(360deg); opacity:0; } }
 nav button.active{color:#fff; font-weight:600;}
 #tab-indicator{
   position:absolute; bottom:0; height:3px; background:var(--blue-bright); border-radius:3px 3px 0 0;
@@ -166,6 +178,44 @@ h2{font-size:1.2rem; margin-bottom:4px;}
 .tstep .twhen{font-size:.74rem; color:var(--blue); font-weight:600; letter-spacing:.03em;}
 .tstep .ttitle{font-weight:600; margin-top:3px; font-size:.94rem; font-family:'Space Grotesk',sans-serif;}
 .tstep .tdesc{color:var(--muted); font-size:.85rem; margin-top:3px;}
+
+.deadline-list{display:flex; flex-direction:column; gap:10px; margin-bottom:30px;}
+.deadline-card{background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+.deadline-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;}
+.deadline-review{font-weight:600; font-size:.9rem; font-family:'Space Grotesk',sans-serif;}
+.deadline-meta{font-size:.78rem; color:var(--muted); margin-top:3px;}
+.deadline-marks{color:var(--blue); font-weight:600;}
+.deadline-outcome{font-size:.85rem; color:var(--muted); margin-top:9px; line-height:1.55;}
+
+.dbadge{font-size:.7rem; font-weight:700; padding:4px 11px; border-radius:14px; white-space:nowrap;}
+.dbadge.upcoming{background:rgba(61,127,196,.15); color:var(--blue);}
+.dbadge.due-soon{background:rgba(240,180,41,.22); color:#B8860B; animation:pulseBadge 1.6s ease-in-out infinite;}
+html[data-theme="dark"] .dbadge.due-soon{color:var(--gold);}
+.dbadge.passed{background:var(--line); color:var(--muted);}
+@keyframes pulseBadge{0%,100%{opacity:1;} 50%{opacity:.5;}}
+
+.progress-wrap{margin:6px 0 26px;}
+.progress-label{display:flex; justify-content:space-between; font-size:.8rem; color:var(--muted); margin-bottom:7px;}
+.progress-track{height:8px; background:var(--line); border-radius:6px; overflow:hidden;}
+.progress-fill{height:100%; width:0%; border-radius:6px; background:linear-gradient(90deg,var(--blue),var(--gold)); transition:width .5s cubic-bezier(.4,0,.2,1);}
+
+.phase-list{display:flex; flex-direction:column; gap:12px;}
+.phase-card{background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:16px 18px;}
+.phase-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;}
+.phase-when{font-size:.73rem; color:var(--blue); font-weight:600; text-transform:uppercase; letter-spacing:.03em; margin-bottom:3px;}
+.phase-title{font-weight:600; font-size:.94rem; font-family:'Space Grotesk',sans-serif;}
+.phase-desc{font-size:.85rem; color:var(--muted); margin-top:8px; line-height:1.6;}
+
+.badge{
+  position:relative; overflow:hidden; display:inline-flex; align-items:center; font-size:.74rem; font-weight:700;
+  padding:6px 13px; border-radius:20px; cursor:pointer; border:1px solid transparent; user-select:none;
+  transition:transform .12s ease; white-space:nowrap;
+}
+.badge:active{transform:scale(.93);}
+.badge.yet{background:var(--line); color:var(--muted);}
+.badge.ongoing{background:rgba(61,127,196,.16); color:var(--blue); border-color:rgba(61,127,196,.3);}
+.badge.done{background:rgba(240,180,41,.2); color:#B8860B; border-color:rgba(240,180,41,.4);}
+html[data-theme="dark"] .badge.done{color:var(--gold);}
 
 .empty{
   text-align:center; padding:44px 20px; color:var(--muted); font-size:.9rem;
