@@ -18,10 +18,10 @@ const team = [
 ];
 
 const pipeline = [
-  { t:"Flex Sensors", d:"Detect finger bending — physical bend becomes analog voltage." },
-  { t:"ESP32 Microcontroller", d:"Reads sensor values — analog signal converted to digital." },
-  { t:"Gesture Classifier", d:"Identifies the gesture — maps data to one of 5–10 known signs." },
-  { t:"Multilingual Speech + Text + Emoji Output", d:"The recognized gesture is rendered simultaneously as speech in the user's chosen language, on-screen text, and an emoji/animated visual cue." }
+  { icon:"🖐️", t:"Flex Sensors", d:"Detect finger bending — physical bend becomes analog voltage." },
+  { icon:"🔌", t:"ESP32 Microcontroller", d:"Reads sensor values — analog signal converted to digital." },
+  { icon:"🧠", t:"Gesture Classifier", d:"Identifies the gesture — maps data to one of 5–10 known signs." },
+  { icon:"🌐", t:"Multilingual Speech + Text + Emoji Output", d:"The recognized gesture is rendered simultaneously as speech in the user's chosen language, on-screen text, and an emoji/animated visual cue." }
 ];
 
 // Official evaluation deadlines from the department's Evaluation Guidelines
@@ -60,7 +60,8 @@ const STATUS_LABEL = { yet:"Yet to Start", ongoing:"Ongoing", done:"Completed" }
 // ---- Render ----
 function renderNav(){
   const nav = document.getElementById("tabs");
-  nav.innerHTML = sections.map((s,i)=>`<button data-i="${i}" class="${i===0?'active':''}">${s.label}</button>`).join("")
+  nav.setAttribute("role", "tablist");
+  nav.innerHTML = sections.map((s,i)=>`<button data-i="${i}" role="tab" aria-selected="${i===0}" aria-controls="sec-${i}" class="${i===0?'active':''}">${s.label}</button>`).join("")
     + `<span id="tab-indicator"></span>`;
   nav.querySelectorAll("button").forEach(btn=>{
     btn.addEventListener("click", e=>{
@@ -103,7 +104,7 @@ function renderMain(){
       <h2>How it works</h2>
       <p class="sub">Physical movement to digital speech, text, and visual output.</p>
       <div class="card pipeline spot">
-        ${pipeline.map((p,i)=>`<div class="pstep"><div class="pnum">${i+1}</div><div class="pbody"><div class="ptitle">${p.t}</div><div class="pdesc">${p.d}</div></div></div>`).join("")}
+        ${pipeline.map((p,i)=>`<div class="pstep"><div class="pnum">${p.icon}</div><div class="pbody"><div class="ptitle">${i+1}. ${p.t}</div><div class="pdesc">${p.d}</div></div></div>`).join("")}
       </div>
     </section>
 
@@ -127,6 +128,7 @@ function renderMain(){
 
       <h2>Our Build Phases</h2>
       <p class="sub">Nothing is built yet — only the research and the proposal are done. Tap a badge to update it as work actually starts.</p>
+      <p class="note">Planned kickoff: hardware build begins after Review I feedback (on/before 25th September 2026), on schedule with the department's timeline.</p>
       <div class="progress-wrap">
         <div class="progress-label"><span>Overall build progress</span><span id="progressPct">0%</span></div>
         <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
@@ -150,9 +152,10 @@ function renderMain(){
     <section id="sec-4">
       <h2>Updates</h2>
       <p class="sub">Progress will be logged here as the project develops.</p>
-      <div class="empty">No updates yet — check back as the build progresses.</div>
+      <div class="empty">No updates yet — the first entry will appear here once hardware work begins.</div>
     </section>
   `;
+  main.querySelectorAll("section").forEach(s=> s.setAttribute("role","tabpanel"));
 }
 
 // ---- Tiny reward system: click sound + ripple + confetti ----
@@ -176,10 +179,14 @@ function playTone(freq, duration, type, peak){
   osc.connect(gain); gain.connect(ctx.destination);
   osc.start(); osc.stop(ctx.currentTime + duration + 0.02);
 }
-function playClickSound(){ playTone(680, 0.08, "sine", 0.035); }
+function hapticTick(ms){
+  if(navigator.vibrate){ try{ navigator.vibrate(ms || 8); }catch(err){ /* not supported */ } }
+}
+function playClickSound(){ playTone(680, 0.08, "sine", 0.035); hapticTick(8); }
 function playSuccessSound(){
   playTone(600, 0.09, "triangle", 0.05);
   setTimeout(()=>playTone(900, 0.13, "triangle", 0.05), 90);
+  hapticTick([10,40,16]);
 }
 function spawnRipple(el, clientX, clientY){
   const rect = el.getBoundingClientRect();
@@ -274,8 +281,54 @@ function initPhaseInteractivity(){
   updateProgressBar(statusMap);
 }
 
+// Swipe left/right anywhere on the content to move between tabs — the kind
+// of gesture a native app would support, not just tap targets.
+function initSwipeNav(){
+  const main = document.getElementById("main");
+  let startX = 0, startY = 0, startTime = 0;
+  main.addEventListener("touchstart", e=>{
+    const t = e.changedTouches[0];
+    startX = t.clientX; startY = t.clientY; startTime = Date.now();
+  }, { passive:true });
+  main.addEventListener("touchend", e=>{
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX, dy = t.clientY - startY, dt = Date.now() - startTime;
+    if(Math.abs(dx) > 55 && Math.abs(dy) < 60 && dt < 600){
+      const current = [...document.querySelectorAll("#tabs button")].findIndex(b=>b.classList.contains("active"));
+      const next = dx < 0 ? current + 1 : current - 1;
+      if(next >= 0 && next < sections.length && next !== current){
+        showTab(next);
+        document.querySelectorAll("#tabs button")[next].scrollIntoView({ behavior:"smooth", inline:"center", block:"nearest" });
+        playClickSound();
+      }
+    }
+  }, { passive:true });
+}
+
+// Cards fade/rise into place as they scroll into view, instead of just
+// appearing — gives scrolling itself a bit of payoff on mobile.
+function initScrollReveal(){
+  const targets = document.querySelectorAll(".title-box, .card, .member, .phase-card, .deadline-card");
+  if(!("IntersectionObserver" in window)){
+    targets.forEach(el=> el.classList.add("in-view"));
+    return;
+  }
+  const obs = new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        entry.target.classList.add("in-view");
+        obs.unobserve(entry.target);
+      }
+    });
+  }, { threshold:0.15 });
+  targets.forEach(el=>{ el.classList.add("reveal"); obs.observe(el); });
+}
+
 function showTab(i){
-  document.querySelectorAll("#tabs button").forEach((b,idx)=>b.classList.toggle("active", idx===i));
+  document.querySelectorAll("#tabs button").forEach((b,idx)=>{
+    b.classList.toggle("active", idx===i);
+    b.setAttribute("aria-selected", idx===i);
+  });
   document.querySelectorAll("main section").forEach((s,idx)=>s.classList.toggle("active", idx===i));
   moveIndicator();
 }
@@ -288,20 +341,30 @@ function moveIndicator(){
   indicator.style.width = active.offsetWidth + "px";
 }
 
+// A single tracked point shared by every visual effect below — updated by
+// real mouse movement on desktop and by the finger's position on touch, so
+// the starfield reacts to whichever one the visitor actually has.
+const pointer = { x:innerWidth/2, y:innerHeight/2 };
+function trackPointer(){
+  window.addEventListener("mousemove", e=>{ pointer.x = e.clientX; pointer.y = e.clientY; });
+  window.addEventListener("touchstart", e=>{
+    if(e.touches[0]){ pointer.x = e.touches[0].clientX; pointer.y = e.touches[0].clientY; }
+  }, { passive:true });
+  window.addEventListener("touchmove", e=>{
+    if(e.touches[0]){ pointer.x = e.touches[0].clientX; pointer.y = e.touches[0].clientY; }
+  }, { passive:true });
+}
+
 // ---- Desktop-only pointer interactions ----
-// Everything in this block is gated on a real mouse (pointer: fine) and never
-// runs on touch devices, so the mobile experience is untouched.
+// Cursor trail, card tilt and magnetic buttons need a real mouse to feel
+// right, so they stay gated on pointer: fine and never run on touch.
 function initPointerEffects(){
   const isFinePointer = window.matchMedia("(pointer: fine)").matches;
   if(!isFinePointer) return;
 
-  const mouse = { x:innerWidth/2, y:innerHeight/2 };
-  document.addEventListener("mousemove", e=>{ mouse.x = e.clientX; mouse.y = e.clientY; });
-
-  initCursorTrail(mouse);
-  initStarfield(mouse);
+  initCursorTrail(pointer);
   initTiltAndSpotlight();
-  initMagneticButtons(mouse);
+  initMagneticButtons(pointer);
 }
 
 // Comet-style trailing dots that chase the real cursor with staggered easing
@@ -482,7 +545,11 @@ function init(){
   renderNav();
   renderMain();
   moveIndicator();
+  trackPointer();
+  initStarfield(pointer);
   initPointerEffects();
+  initSwipeNav();
+  initScrollReveal();
   initModeToggle();
   initDarkMode();
   renderDeadlineBadges();
