@@ -24,11 +24,38 @@ const pipeline = [
   { t:"Multilingual Speech + Text + Emoji Output", d:"The recognized gesture is rendered simultaneously as speech in the user's chosen language, on-screen text, and an emoji/animated visual cue." }
 ];
 
-const roadmap = [
-  { when:"Weeks 1–4", t:"Prove the core sensor logic", d:"Order components, build the breadboard circuit, and collect gesture data. No PCB work until the breadboard logic is validated." },
-  { when:"Weeks 4–10", t:"Synthesize into a wearable device", d:"Fabricate the PCB, build firmware and audio output, assemble the glove, and run full system testing and calibration." },
-  { when:"Ongoing", t:"Multilingual + multimodal output layer", d:"Build the language-selectable speech output and the synchronized text/emoji feedback on top of the working core pipeline." }
+// Official evaluation deadlines from the department's Evaluation Guidelines
+const deadlines = [
+  { review:"Review I", marks:5, period:"On or before 25th September 2026", due:new Date("2026-09-25"),
+    outcome:"Clearly present the title of the project along with a deep understanding of the problem statement, objectives, and scope." },
+  { review:"Review I", marks:20, period:"On or before 23rd October 2026", due:new Date("2026-10-23"),
+    outcome:"Demonstrate partial execution (30%) of the project." },
+  { review:"Review II", marks:25, period:"On or before 22nd January 2027", due:new Date("2027-01-22"),
+    outcome:"50% Execution — complete and demonstrate half of the project's functionality." },
+  { review:"Review III & Report Writing", marks:40, period:"12th–16th April 2027", due:new Date("2027-04-16"),
+    outcome:"100% Execution — the complete project should be fully developed and demonstrated." },
+  { review:"Review III & Report Writing", marks:10, period:"12th–16th April 2027", due:new Date("2027-04-16"),
+    outcome:"Full documentation submitted in the format given by the academics." }
 ];
+
+// Our own build phases. status is a *default* — the team updates it by
+// tapping the badge as work actually progresses; it's saved per browser.
+const phases = [
+  { id:"research", when:"Done so far", t:"Literature Review & Proposal",
+    d:"Read existing gesture-to-speech research, identified the gap, and finalized the differentiating features — multilingual speech output plus synchronized text and emoji feedback. Title and Abstract finalized.",
+    status:"done" },
+  { id:"breadboard", when:"Weeks 1–4, after kickoff", t:"Breadboard Prototype",
+    d:"Order components, build the breadboard circuit with flex sensors and ESP32, and collect gesture data. No PCB work starts until this logic is validated.",
+    status:"yet" },
+  { id:"assembly", when:"Weeks 4–10", t:"PCB & Full Assembly",
+    d:"Fabricate the PCB, build firmware and audio output, assemble the glove, and run full system testing and calibration.",
+    status:"yet" },
+  { id:"multimodal", when:"Once the core pipeline works", t:"Multilingual + Multimodal Output Layer",
+    d:"Build the language-selectable speech output and the synchronized text/emoji feedback on top of the working core pipeline.",
+    status:"yet" }
+];
+const STATUS_ORDER = ["yet","ongoing","done"];
+const STATUS_LABEL = { yet:"Yet to Start", ongoing:"Ongoing", done:"Completed" };
 
 // ---- Render ----
 function renderNav(){
@@ -36,7 +63,11 @@ function renderNav(){
   nav.innerHTML = sections.map((s,i)=>`<button data-i="${i}" class="${i===0?'active':''}">${s.label}</button>`).join("")
     + `<span id="tab-indicator"></span>`;
   nav.querySelectorAll("button").forEach(btn=>{
-    btn.addEventListener("click", ()=> showTab(parseInt(btn.dataset.i)));
+    btn.addEventListener("click", e=>{
+      showTab(parseInt(btn.dataset.i));
+      spawnRipple(btn, e.clientX, e.clientY);
+      playClickSound();
+    });
   });
 }
 
@@ -77,10 +108,42 @@ function renderMain(){
     </section>
 
     <section id="sec-3">
-      <h2>Roadmap</h2>
-      <p class="sub">Start with a small working prototype, validate every stage, then add improvements.</p>
-      <div class="timeline">
-        ${roadmap.map(r=>`<div class="tstep"><div class="twhen">${r.when}</div><div class="ttitle">${r.t}</div><div class="tdesc">${r.d}</div></div>`).join("")}
+      <h2>College Evaluation Deadlines</h2>
+      <p class="sub">From the department's Evaluation Guidelines (BAXXX191 — Basic Multidisciplinary Project).</p>
+      <div class="deadline-list">
+        ${deadlines.map(dl=>`
+          <div class="deadline-card">
+            <div class="deadline-top">
+              <div>
+                <div class="deadline-review">${dl.review}</div>
+                <div class="deadline-meta">${dl.period} &middot; <span class="deadline-marks">${dl.marks} marks</span></div>
+              </div>
+              <span class="dbadge" data-due="${dl.due.toISOString()}"></span>
+            </div>
+            <div class="deadline-outcome">${dl.outcome}</div>
+          </div>
+        `).join("")}
+      </div>
+
+      <h2>Our Build Phases</h2>
+      <p class="sub">Nothing is built yet — only the research and the proposal are done. Tap a badge to update it as work actually starts.</p>
+      <div class="progress-wrap">
+        <div class="progress-label"><span>Overall build progress</span><span id="progressPct">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+      <div class="phase-list">
+        ${phases.map(p=>`
+          <div class="phase-card">
+            <div class="phase-top">
+              <div>
+                <div class="phase-when">${p.when}</div>
+                <div class="phase-title">${p.t}</div>
+              </div>
+              <span class="badge" data-phase="${p.id}"></span>
+            </div>
+            <div class="phase-desc">${p.d}</div>
+          </div>
+        `).join("")}
       </div>
     </section>
 
@@ -90,6 +153,125 @@ function renderMain(){
       <div class="empty">No updates yet — check back as the build progresses.</div>
     </section>
   `;
+}
+
+// ---- Tiny reward system: click sound + ripple + confetti ----
+// Applied everywhere a click *does* something, so every interaction gives
+// a small, immediate bit of feedback instead of feeling inert.
+let audioCtx;
+function ensureAudio(){
+  if(!audioCtx){
+    try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(err){ audioCtx = null; }
+  }
+  return audioCtx;
+}
+function playTone(freq, duration, type, peak){
+  const ctx = ensureAudio();
+  if(!ctx) return;
+  const osc = ctx.createOscillator(), gain = ctx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(peak, ctx.currentTime + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.start(); osc.stop(ctx.currentTime + duration + 0.02);
+}
+function playClickSound(){ playTone(680, 0.08, "sine", 0.035); }
+function playSuccessSound(){
+  playTone(600, 0.09, "triangle", 0.05);
+  setTimeout(()=>playTone(900, 0.13, "triangle", 0.05), 90);
+}
+function spawnRipple(el, clientX, clientY){
+  const rect = el.getBoundingClientRect();
+  const r = document.createElement("span");
+  r.className = "ripple";
+  r.style.left = (clientX - rect.left) + "px";
+  r.style.top = (clientY - rect.top) + "px";
+  el.appendChild(r);
+  r.addEventListener("animationend", ()=> r.remove());
+}
+function confettiBurst(x, y){
+  const colors = ["#F0B429","#5B9BE0","#3D7FC4","#EAF2FB"];
+  for(let i=0;i<16;i++){
+    const p = document.createElement("span");
+    p.className = "confetti-piece";
+    const angle = Math.random()*Math.PI*2;
+    const dist = 36 + Math.random()*56;
+    p.style.setProperty("--dx", (Math.cos(angle)*dist) + "px");
+    p.style.setProperty("--dy", (Math.sin(angle)*dist) + "px");
+    p.style.background = colors[i % colors.length];
+    p.style.left = x + "px";
+    p.style.top = y + "px";
+    document.body.appendChild(p);
+    p.addEventListener("animationend", ()=> p.remove());
+  }
+}
+function attachClickFX(el){
+  el.addEventListener("click", e=>{
+    spawnRipple(el, e.clientX ?? (el.getBoundingClientRect().left+el.offsetWidth/2), e.clientY ?? (el.getBoundingClientRect().top+el.offsetHeight/2));
+    playClickSound();
+  });
+}
+
+// ---- Deadlines: status is computed automatically from today's date ----
+function renderDeadlineBadges(){
+  document.querySelectorAll(".dbadge").forEach(el=>{
+    const due = new Date(el.dataset.due);
+    const days = Math.ceil((due - new Date()) / 86400000);
+    let cls, label;
+    if(days < 0){ cls="passed"; label="Deadline passed"; }
+    else if(days <= 14){ cls="due-soon"; label = days===0 ? "Due today" : `Due in ${days}d`; }
+    else { cls="upcoming"; label="Upcoming"; }
+    el.className = "dbadge " + cls;
+    el.textContent = label;
+  });
+}
+
+// ---- Phases: status is set by the team by tapping the badge, saved locally ----
+function loadPhaseStatus(){
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem("gts-phase-status") || "{}"); }catch(err){ saved = {}; }
+  const merged = {};
+  phases.forEach(p=> merged[p.id] = saved[p.id] || p.status);
+  return merged;
+}
+function savePhaseStatus(map){
+  try{ localStorage.setItem("gts-phase-status", JSON.stringify(map)); }catch(err){ /* storage unavailable */ }
+}
+function updateProgressBar(map){
+  const done = Object.values(map).filter(s=>s==="done").length;
+  const pct = Math.round((done / phases.length) * 100);
+  document.getElementById("progressFill").style.width = pct + "%";
+  document.getElementById("progressPct").textContent = pct + "%";
+}
+function initPhaseInteractivity(){
+  const statusMap = loadPhaseStatus();
+
+  document.querySelectorAll(".badge[data-phase]").forEach(badge=>{
+    const id = badge.dataset.phase;
+    badge.className = "badge " + statusMap[id];
+    badge.textContent = STATUS_LABEL[statusMap[id]];
+
+    badge.addEventListener("click", e=>{
+      const current = statusMap[id];
+      const next = STATUS_ORDER[(STATUS_ORDER.indexOf(current) + 1) % STATUS_ORDER.length];
+      statusMap[id] = next;
+      badge.className = "badge " + next;
+      badge.textContent = STATUS_LABEL[next];
+      savePhaseStatus(statusMap);
+      updateProgressBar(statusMap);
+
+      spawnRipple(badge, e.clientX, e.clientY);
+      if(next === "done"){
+        playSuccessSound();
+        confettiBurst(e.clientX, e.clientY);
+      } else {
+        playClickSound();
+      }
+    });
+  });
+
+  updateProgressBar(statusMap);
 }
 
 function showTab(i){
@@ -117,7 +299,7 @@ function initPointerEffects(){
   document.addEventListener("mousemove", e=>{ mouse.x = e.clientX; mouse.y = e.clientY; });
 
   initCursorTrail(mouse);
-  initParticleNetwork(mouse);
+  initStarfield(mouse);
   initTiltAndSpotlight();
   initMagneticButtons(mouse);
 }
@@ -147,69 +329,73 @@ function initCursorTrail(mouse){
   loop();
 }
 
-// Animated constellation of particles that drift, link to neighbours, and
-// get pulled toward the cursor when it passes nearby
-function initParticleNetwork(mouse){
+// A twinkling starfield across the whole page. Stars sit at a fixed "home"
+// position and sparkle in place; when the cursor passes through, nearby
+// stars get shoved out of its path like a crowd parting, then drift back.
+function initStarfield(mouse){
   const canvas = document.getElementById("particles");
   const ctx = canvas.getContext("2d");
-  let w, h, particles;
-  const COUNT = 55;
-  const LINK_DIST = 130;
-  const MOUSE_DIST = 170;
+  let w, h, stars;
+  const COUNT = 130;
+  const PIERCE_RADIUS = 90;
 
   function resize(){
     w = canvas.width = innerWidth;
     h = canvas.height = document.documentElement.scrollHeight;
   }
-  function makeParticles(){
-    particles = Array.from({length:COUNT}, ()=>({
-      x:Math.random()*w, y:Math.random()*h,
-      vx:(Math.random()-0.5)*0.35, vy:(Math.random()-0.5)*0.35
-    }));
+  function makeStars(){
+    stars = Array.from({length:COUNT}, ()=>{
+      const homeX = Math.random()*w, homeY = Math.random()*h;
+      return {
+        homeX, homeY, x:homeX, y:homeY, vx:0, vy:0,
+        r: 0.6 + Math.random()*1.6,
+        phase: Math.random()*Math.PI*2,
+        speed: 0.6 + Math.random()*1.2
+      };
+    });
   }
-  resize(); makeParticles();
-  window.addEventListener("resize", ()=>{ resize(); });
+  resize(); makeStars();
+  window.addEventListener("resize", ()=>{ resize(); makeStars(); });
 
+  let t = 0;
   function tick(){
+    t += 0.02;
     ctx.clearRect(0,0,w,h);
     const scrollY = window.scrollY;
+    const my = mouse.y + scrollY;
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
 
-    particles.forEach(p=>{
-      p.x += p.vx; p.y += p.vy;
-      if(p.x<0||p.x>w) p.vx*=-1;
-      if(p.y<0||p.y>h) p.vy*=-1;
-
-      const my = mouse.y + scrollY;
-      const dx = mouse.x - p.x, dy = my - p.y;
-      const dist = Math.hypot(dx,dy);
-      if(dist < MOUSE_DIST){
-        const pull = (1 - dist/MOUSE_DIST) * 0.6;
-        p.vx += (dx/dist) * pull * 0.03;
-        p.vy += (dy/dist) * pull * 0.03;
+    stars.forEach(s=>{
+      const dx = s.x - mouse.x, dy = s.y - my;
+      const dist = Math.hypot(dx,dy) || 1;
+      if(dist < PIERCE_RADIUS){
+        const push = (1 - dist/PIERCE_RADIUS) * 2.2;
+        s.vx += (dx/dist) * push;
+        s.vy += (dy/dist) * push;
       }
-      p.vx *= 0.99; p.vy *= 0.99;
+      // spring back toward home slot, with drag so it settles instead of oscillating
+      s.vx += (s.homeX - s.x) * 0.02;
+      s.vy += (s.homeY - s.y) * 0.02;
+      s.vx *= 0.88; s.vy *= 0.88;
+      s.x += s.vx; s.y += s.vy;
+
+      const twinkle = 0.35 + Math.sin(t*s.speed + s.phase) * 0.3;
+      const alpha = Math.max(0.08, twinkle);
+      const color = isDark ? `255,255,255` : `19,42,82`;
+
+      ctx.beginPath();
+      ctx.fillStyle = `rgba(${color},${alpha})`;
+      ctx.arc(s.x, s.y - scrollY, s.r, 0, Math.PI*2);
+      ctx.fill();
+
+      // occasional brighter glow core for a sparkle effect
+      if(twinkle > 0.5){
+        ctx.beginPath();
+        ctx.fillStyle = isDark ? `rgba(240,180,41,${(twinkle-0.5)*0.9})` : `rgba(61,127,196,${(twinkle-0.5)*0.9})`;
+        ctx.arc(s.x, s.y - scrollY, s.r*2, 0, Math.PI*2);
+        ctx.fill();
+      }
     });
-
-    for(let i=0;i<particles.length;i++){
-      for(let j=i+1;j<particles.length;j++){
-        const a=particles[i], b=particles[j];
-        const d = Math.hypot(a.x-b.x, a.y-b.y);
-        if(d < LINK_DIST){
-          ctx.strokeStyle = `rgba(61,127,196,${(1 - d/LINK_DIST)*0.35})`;
-          ctx.lineWidth = 1;
-          ctx.beginPath(); ctx.moveTo(a.x, a.y-scrollY); ctx.lineTo(b.x, b.y-scrollY); ctx.stroke();
-        }
-      }
-      const p = particles[i];
-      const my = mouse.y + scrollY;
-      const dm = Math.hypot(mouse.x-p.x, my-p.y);
-      if(dm < MOUSE_DIST){
-        ctx.strokeStyle = `rgba(91,155,224,${(1 - dm/MOUSE_DIST)*0.45})`;
-        ctx.beginPath(); ctx.moveTo(p.x, p.y-scrollY); ctx.lineTo(mouse.x, mouse.y); ctx.stroke();
-      }
-      ctx.fillStyle = "rgba(61,127,196,0.55)";
-      ctx.beginPath(); ctx.arc(p.x, p.y-scrollY, 1.6, 0, Math.PI*2); ctx.fill();
-    }
     requestAnimationFrame(tick);
   }
   tick();
@@ -299,6 +485,10 @@ function init(){
   initPointerEffects();
   initModeToggle();
   initDarkMode();
+  renderDeadlineBadges();
+  initPhaseInteractivity();
+  attachClickFX(document.getElementById("modeToggle"));
+  attachClickFX(document.getElementById("themeToggle"));
   window.addEventListener("resize", moveIndicator);
 }
 
