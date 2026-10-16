@@ -19,9 +19,9 @@ const team = [
 ];
 
 const pipeline = [
-  { icon:"🖐️", t:"Flex Sensors", d:"Detect finger bending — physical bend becomes analog voltage." },
-  { icon:"🔌", t:"ESP32 Microcontroller", d:"Reads sensor values — analog signal converted to digital." },
-  { icon:"🧠", t:"Gesture Classifier", d:"Identifies the gesture — maps data to one of 5–10 known signs." },
+  { icon:"🖐️", t:"Flex Sensors", d:"Detect finger curvature — bend alters sensor resistance, forming a voltage divider: V_out = 3.3V × R_flex / (10,000 + R_flex)." },
+  { icon:"🔌", t:"ESP32 Microcontroller", d:"Reads 12-bit analog voltages (GPIO 34), converting 2.425V–3.300V (3009–4095 ADC counts) into serial telemetry." },
+  { icon:"🧠", t:"Gesture Classifier", d:"Identifies the gesture — lightweight model maps multi-channel finger readings and motion data to 5–10 known signs." },
   { icon:"🌐", t:"Multilingual Speech + Text + Emoji Output", d:"The recognized gesture is rendered simultaneously as speech in the user's chosen language, on-screen text, and an emoji/animated visual cue." }
 ];
 
@@ -45,9 +45,9 @@ const phases = [
   { id:"research", when:"Done so far", t:"Literature Review & Proposal",
     d:"Read existing gesture-to-speech research, identified the gap, and finalized the differentiating features — multilingual speech output plus synchronized text and emoji feedback. Title and Abstract finalized.",
     status:"done" },
-  { id:"breadboard", when:"Weeks 1–4, after kickoff", t:"Breadboard Prototype",
-    d:"Order components, build the breadboard circuit with flex sensors and ESP32, and collect gesture data. No PCB work starts until this logic is validated.",
-    status:"yet" },
+  { id:"breadboard", when:"Weeks 1–4, active build", t:"Breadboard Prototype (Milestone 1 & 2)",
+    d:"Hardware kickoff: ESP32 serial communication verified and single-finger flex sensor voltage divider tested on breadboard (GPIO 34). Currently calibrating ADC saturation and expanding to 5 channels.",
+    status:"ongoing" },
   { id:"assembly", when:"Weeks 4–10", t:"PCB & Full Assembly",
     d:"Fabricate the PCB, build firmware and audio output, assemble the glove, and run full system testing and calibration.",
     status:"yet" },
@@ -57,6 +57,43 @@ const phases = [
 ];
 const STATUS_ORDER = ["yet","ongoing","done"];
 const STATUS_LABEL = { yet:"Yet to Start", ongoing:"Ongoing", done:"Completed" };
+
+const updates = [
+  {
+    id: "milestone-1-2",
+    date: "Day 1 · October 2026",
+    badge: "Milestones 1 & 2 Completed",
+    title: "ESP32 Bring-Up & Single Flex Sensor Voltage Divider Circuit",
+    summary: "Hardware build has kicked off! We completed Milestone 1 (ESP32 setup & USB serial communication) and Milestone 2 (assembly and testing of a single flex-sensor voltage-divider circuit on breadboard). The circuit converts finger bend into variable resistance and analog voltage measured on ESP32 GPIO 34.",
+    image: "day1.png",
+    imageCaption: "Fig 1: Day 1 circuit diagram — 10 kΩ pull-up to 3.3V, flex sensor to GND, with junction routed to ESP32 ADC (GPIO 34).",
+    formula: "V_out = 3.3V × [ R_flex / (10,000Ω + R_flex) ]",
+    readings: [
+      { condition: "Straight Sensor", adc: "3009 counts", voltage: "2.425 V", status: "Minimum Baseline" },
+      { condition: "Bent Sensor", adc: "4095 counts", voltage: "3.300 V", status: "Maximum (Rail Saturation)" },
+      { condition: "Observed Span (Δ)", adc: "+1086 counts", voltage: "+0.875 V", status: "Active Dynamic Range" }
+    ],
+    observation: "The bent-sensor reading reached the reported ADC maximum of 4095 counts at the 3.300 V rail. This indicates that the circuit is operating near or at upper-rail saturation under maximum bend, leaving minimal measurement headroom. Before scaling this circuit to all five fingers, the team is evaluating divider resistance adjustments (e.g. tuning the 10 kΩ fixed resistor) and sensor placement to ensure linear dynamic range across natural finger deflections.",
+    tools: [
+      { name: "ESP32 Development Board", desc: "12-bit ADC acquisition (GPIO 34) & USB serial transmission" },
+      { name: "Flex Sensor", desc: "Variable resistive bend transducer mounted on glove joint" },
+      { name: "10 kΩ Resistor", desc: "Precision fixed pull-up resistor forming the voltage divider" },
+      { name: "Breadboard & Multimeter", desc: "Prototyping bench connections and DC voltage verification" }
+    ],
+    safetyNotes: [
+      "Strictly powered from ESP32 3.3V rail to protect the ADC from 5V overvoltage.",
+      "Shared common ground (GND) across power, sensor, and measuring instruments.",
+      "Gentle flexing practiced to avoid mechanical strain or creasing at the sensor terminals."
+    ],
+    nextSteps: [
+      "Perform multi-angle calibration across gradual finger bends to map resistance curves.",
+      "Adjust voltage divider fixed resistance to prevent 4095 saturation at full bend.",
+      "Replicate the calibrated divider circuit across remaining 4 flex sensors with independent ADC pins.",
+      "Verify serial output format as a multi-channel comma-separated telemetry line.",
+      "Integrate MPU-6050 6-DOF IMU for hand orientation tracking."
+    ]
+  }
+];
 
 // ---- Render ----
 function renderNav(){
@@ -175,9 +212,84 @@ function renderMain(){
     </section>
 
     <section id="sec-5">
-      <h2>Updates</h2>
-      <p class="sub">Progress will be logged here as the project develops.</p>
-      <div class="empty">No updates yet — the first entry will appear here once hardware work begins.</div>
+      <h2>Hardware & Project Updates</h2>
+      <p class="sub">Lab progress, engineering milestones, and telemetry logs as the project develops.</p>
+      
+      <div class="update-list">
+        ${updates.map(u => `
+          <article class="update-card spot" id="${u.id}">
+            <div class="update-header">
+              <div class="update-meta">
+                <span class="update-date">${u.date}</span>
+                <span class="update-badge">${u.badge}</span>
+              </div>
+              <h3 class="update-title">${u.title}</h3>
+              <p class="update-summary">${u.summary}</p>
+            </div>
+
+            <div class="circuit-showcase">
+              <div class="circuit-media" onclick="openLightbox('${u.image}', '${u.title}')" title="Click to enlarge diagram">
+                <img src="${u.image}" alt="${u.title}" class="circuit-img" loading="lazy" />
+                <span class="circuit-zoom-hint">🔍 Click to zoom</span>
+              </div>
+              <p class="circuit-caption">${u.imageCaption}</p>
+            </div>
+
+            <div class="update-section-title">⚡ Principle of Operation & Voltage Divider Formula</div>
+            <div class="formula-box">
+              <code>V<sub>out</sub> = 3.3V &times; [ R<sub>flex</sub> / (10,000&Omega; + R<sub>flex</sub>) ]</code>
+              <p class="formula-desc">The fixed 10 k&Omega; resistor and flex sensor form a voltage divider on the 3.3V rail. Increasing finger bend elevates flex sensor resistance, causing the junction voltage measured on ESP32 GPIO 34 to rise.</p>
+            </div>
+
+            <div class="update-section-title">📊 Recorded Test Readings (Single-Sensor Breadboard Test)</div>
+            <div class="readings-grid">
+              ${u.readings.map(r => `
+                <div class="reading-card">
+                  <div class="rc-cond">${r.condition}</div>
+                  <div class="rc-values">
+                    <span class="rc-adc">${r.adc}</span>
+                    <span class="rc-volt">${r.voltage}</span>
+                  </div>
+                  <div class="rc-status">${r.status}</div>
+                </div>
+              `).join("")}
+            </div>
+
+            <div class="obs-box">
+              <div class="obs-icon">⚠️</div>
+              <div class="obs-content">
+                <strong>Critical Engineering Insight:</strong> ${u.observation}
+              </div>
+            </div>
+
+            <div class="update-grid-two">
+              <div class="tools-card">
+                <h4>🛠️ Components & Bench Tools</h4>
+                <ul class="u-list">
+                  ${u.tools.map(t => `<li><strong>${t.name}:</strong> ${t.desc}</li>`).join("")}
+                </ul>
+              </div>
+              <div class="next-card">
+                <h4>🎯 Immediate Next Steps</h4>
+                <ul class="u-list check-list">
+                  ${u.nextSteps.map(s => `<li>${s}</li>`).join("")}
+                </ul>
+              </div>
+            </div>
+
+            <div class="safety-box">
+              <span class="sb-label">🛡️ Lab Safety & Best Practices:</span>
+              <span>${u.safetyNotes.join(" · ")}</span>
+            </div>
+
+            <div class="report-download-wrap">
+              <a href="Sign_Language_Glove_Progress_Report_Milestone_2_Updated.docx" download class="report-btn">
+                <span>📄</span> Download Milestone 2 Progress Report (.docx)
+              </a>
+            </div>
+          </article>
+        `).join("")}
+      </div>
     </section>
   `;
   main.querySelectorAll("section").forEach(s=> s.setAttribute("role","tabpanel"));
@@ -265,13 +377,13 @@ function renderDeadlineBadges(){
 // ---- Phases: status is set by the team by tapping the badge, saved locally ----
 function loadPhaseStatus(){
   let saved = {};
-  try{ saved = JSON.parse(localStorage.getItem("gts-phase-status") || "{}"); }catch(err){ saved = {}; }
+  try{ saved = JSON.parse(localStorage.getItem("gts-phase-status-v2") || "{}"); }catch(err){ saved = {}; }
   const merged = {};
   phases.forEach(p=> merged[p.id] = saved[p.id] || p.status);
   return merged;
 }
 function savePhaseStatus(map){
-  try{ localStorage.setItem("gts-phase-status", JSON.stringify(map)); }catch(err){ /* storage unavailable */ }
+  try{ localStorage.setItem("gts-phase-status-v2", JSON.stringify(map)); }catch(err){ /* storage unavailable */ }
 }
 function updateProgressBar(map){
   const done = Object.values(map).filter(s=>s==="done").length;
@@ -615,6 +727,41 @@ function initDemo(){
       window.speechSynthesis.speak(utterance);
     });
   });
+}
+
+// ---- Lightbox Modal for Diagrams & Images ----
+function openLightbox(src, title){
+  let modal = document.getElementById("lightbox-modal");
+  if(!modal){
+    modal = document.createElement("div");
+    modal.id = "lightbox-modal";
+    modal.className = "lightbox-modal";
+    modal.innerHTML = `
+      <div class="lightbox-content">
+        <button class="lightbox-close" aria-label="Close modal">&times;</button>
+        <img class="lightbox-img" src="" alt="" />
+        <div class="lightbox-title"></div>
+      </div>
+    `;
+    modal.addEventListener("click", e=>{
+      if(e.target === modal || e.target.classList.contains("lightbox-close")){
+        modal.classList.remove("active");
+      }
+    });
+    window.addEventListener("keydown", e=>{
+      if(e.key === "Escape" && modal.classList.contains("active")){
+        modal.classList.remove("active");
+      }
+    });
+    document.body.appendChild(modal);
+  }
+  const img = modal.querySelector(".lightbox-img");
+  const caption = modal.querySelector(".lightbox-title");
+  img.src = src;
+  img.alt = title;
+  caption.textContent = title;
+  modal.classList.add("active");
+  playClickSound();
 }
 
 // ---- Init ----
