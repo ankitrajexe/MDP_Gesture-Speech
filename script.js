@@ -1,5 +1,6 @@
 // ---- Content data ----
 const sections = [
+  { id:"demo", label:"Demo" },
   { id:"overview", label:"Overview" },
   { id:"team", label:"Team" },
   { id:"pipeline", label:"How it works" },
@@ -76,6 +77,30 @@ function renderMain(){
   const main = document.getElementById("main");
   main.innerHTML = `
     <section id="sec-0" class="active">
+      <div class="title-box spot demo-container">
+        <div class="label">INTERACTIVE DEMO</div>
+        <div class="value">Try the Gesture-to-Speech simulation</div>
+        <p class="sub" style="margin-top: 8px;">Select a gesture below to see the translation. (Note: This is a website simulation and does not connect to actual glove hardware or camera input).</p>
+        
+        <div class="demo-layout">
+          <div class="gesture-grid">
+            <button class="gesture-btn" data-emoji="🖐️" data-text="Hello / Stop" data-phrase="Hello there!"><span class="gb-icon">🖐️</span><span class="gb-label">Hello</span></button>
+            <button class="gesture-btn" data-emoji="👍" data-text="Yes / Good" data-phrase="Yes, sounds good."><span class="gb-icon">👍</span><span class="gb-label">Yes</span></button>
+            <button class="gesture-btn" data-emoji="👎" data-text="No / Bad" data-phrase="No, I disagree."><span class="gb-icon">👎</span><span class="gb-label">No</span></button>
+            <button class="gesture-btn" data-emoji="✌️" data-text="Victory / Peace" data-phrase="Peace!"><span class="gb-icon">✌️</span><span class="gb-label">Peace</span></button>
+            <button class="gesture-btn" data-emoji="✊" data-text="Solidarity / Power" data-phrase="More power to you!"><span class="gb-icon">✊</span><span class="gb-label">Power</span></button>
+            <button class="gesture-btn" data-emoji="🤟" data-text="I Love You" data-phrase="I love you."><span class="gb-icon">🤟</span><span class="gb-label">Love</span></button>
+          </div>
+          <div class="demo-output">
+            <div class="output-emoji" id="demo-out-emoji">❔</div>
+            <div class="output-text" id="demo-out-text">Select a gesture</div>
+            <div class="output-status" id="demo-out-status">Awaiting input...</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-1">
       <div class="title-box spot">
         <div class="label">TITLE</div>
         <div class="value">Multilingual AI-Based Gesture-to-Speech Communication System with Synchronized Text and Emoji-Based Visual Feedback</div>
@@ -91,7 +116,7 @@ function renderMain(){
       </div>
     </section>
 
-    <section id="sec-1">
+    <section id="sec-2">
       <h2>Team</h2>
       <p class="sub">One member driving each engineering discipline.</p>
       <div class="team-grid">
@@ -100,7 +125,7 @@ function renderMain(){
       </div>
     </section>
 
-    <section id="sec-2">
+    <section id="sec-3">
       <h2>How it works</h2>
       <p class="sub">Physical movement to digital speech, text, and visual output.</p>
       <div class="card pipeline spot">
@@ -108,7 +133,7 @@ function renderMain(){
       </div>
     </section>
 
-    <section id="sec-3">
+    <section id="sec-4">
       <h2>College Evaluation Deadlines</h2>
       <p class="sub">From the department's Evaluation Guidelines (BAXXX191 — Basic Multidisciplinary Project).</p>
       <div class="deadline-list">
@@ -149,7 +174,7 @@ function renderMain(){
       </div>
     </section>
 
-    <section id="sec-4">
+    <section id="sec-5">
       <h2>Updates</h2>
       <p class="sub">Progress will be logged here as the project develops.</p>
       <div class="empty">No updates yet — the first entry will appear here once hardware work begins.</div>
@@ -185,11 +210,11 @@ function playTone(freq, duration, type, peak){
 function hapticTick(pattern){
   if(navigator.vibrate){ try{ navigator.vibrate(pattern || 20); }catch(err){ /* not supported */ } }
 }
-function playClickSound(){ playTone(680, 0.08, "sine", 0.035); hapticTick(20); }
+function playClickSound(){ playTone(680, 0.08, "sine", 0.035); hapticTick(80); }
 function playSuccessSound(){
   playTone(600, 0.09, "triangle", 0.05);
   setTimeout(()=>playTone(900, 0.13, "triangle", 0.05), 90);
-  hapticTick([25,60,35]);
+  hapticTick([50,60,60]);
 }
 function spawnRipple(el, clientX, clientY){
   const rect = el.getBoundingClientRect();
@@ -552,10 +577,51 @@ function initDarkMode(){
   });
 }
 
+// ---- Demo Interaction ----
+function initDemo(){
+  const emojiOut = document.getElementById("demo-out-emoji");
+  const textOut = document.getElementById("demo-out-text");
+  const statusOut = document.getElementById("demo-out-status");
+
+  document.querySelectorAll(".gesture-btn").forEach(btn => {
+    btn.addEventListener("click", e => {
+      spawnRipple(btn, e.clientX, e.clientY);
+      playClickSound();
+
+      const emoji = btn.dataset.emoji;
+      const text = btn.dataset.text;
+      const phrase = btn.dataset.phrase;
+
+      emojiOut.textContent = emoji;
+      textOut.textContent = text;
+      statusOut.textContent = "Translating...";
+      
+      // Animate output briefly
+      emojiOut.style.animation = "none";
+      setTimeout(() => { emojiOut.style.animation = "fade 0.3s ease"; }, 10);
+
+      if (!('speechSynthesis' in window)) {
+        statusOut.textContent = "Speech API unsupported. (Fallback: Text & Emoji only)";
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(phrase);
+      
+      utterance.onstart = () => { statusOut.textContent = "Speaking..."; };
+      utterance.onend = () => { statusOut.textContent = "Done."; };
+      utterance.onerror = () => { statusOut.textContent = "Speech error."; };
+      
+      window.speechSynthesis.speak(utterance);
+    });
+  });
+}
+
 // ---- Init ----
 function init(){
   renderNav();
   renderMain();
+  initDemo();
   moveIndicator();
   trackPointer();
   initStarfield(pointer);
